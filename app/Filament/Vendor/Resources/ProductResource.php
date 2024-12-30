@@ -12,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
 
@@ -19,8 +20,27 @@ class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
     protected static ?int $navigationSort = 0;
+    protected static int $globalSearchResultsLimit = 20;
     protected static ?string $navigationIcon = 'heroicon-o-bolt';
     protected static ?string $navigationGroup = 'Shop';
+    protected static ?string $recordTitleAttribute = "name";
+
+    public static function getGloballySearchableAttributes () : array
+    {
+        return ['name','slug','description'];
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Brand' => $record->brand->name,
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['brand']);
+    }
 
     public static function form(Form $form): Form
     {
@@ -33,11 +53,11 @@ class ProductResource extends Resource
                             ->live(onBlur: true)
                             ->unique()
                             ->afterStateUpdated(function (string $operation,$state, Forms\Set $set) {
-                            if ($operation != 'create') {
-                                return;
-                            }
-                            $set('slug',Str::slug($state));
-                        }),
+                                if ($operation != 'create') {
+                                    return;
+                                }
+                                $set('slug',Str::slug($state));
+                            }),
 
                         Forms\Components\TextInput::make('slug')
                             ->required()
@@ -96,13 +116,13 @@ class ProductResource extends Resource
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_visible')
-                ->label('Visible')
+                    ->label('Visible')
                     ->boolean()
                     ->trueLabel('Only Visible Products')
                     ->falseLabel('Only Hidden Products')
                     ->native(false),
                 Tables\Filters\SelectFilter::make('brand')
-                ->relationship('brand','name')
+                    ->relationship('brand','name')
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
